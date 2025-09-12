@@ -1,33 +1,59 @@
-// Types for the multi-agent system
+// Modern Types for BuddyAgents - Azure OpenAI Integration
 
-export interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// Agent Types
+export type AgentType = 'mitra' | 'guru' | 'parikshak';
 
 export interface Agent {
-  id: string;
+  id: AgentType;
   name: string;
-  type: 'research' | 'creative' | 'coding' | 'general' | 'companion' | 'mentor' | 'interview';
+  displayName: string;
+  emoji: string;
   description: string;
-  system_prompt: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  color: string;
+  role: string;
+  capabilities: string[];
+  voiceId: string;
 }
 
-export interface Conversation {
+// Message Types
+export interface Message {
   id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  agent?: AgentType;
+  audioUrl?: string;
+  isStreaming?: boolean;
+}
+
+// API Response Types
+export interface ChatResponse {
+  response: string;
+  agent_type: AgentType;
+  voice_id: string;
+  voice_info: {
+    name: string;
+    language: string;
+    gender: string;
+  };
+  timestamp: string;
+  audio_available: boolean;
+}
+
+// Chat Request Type
+export interface ChatRequest {
+  message: string;
+  agent_type: AgentType;
   user_id: string;
-  agent_id: string;
-  title: string;
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
+  voice_enabled: boolean;
+}
+
+// Streaming Chat Request
+export interface StreamChatRequest {
+  message: string;
+  agent_type: AgentType;
+  user_id: string;
+}
   agent?: Agent;
   messages?: Message[];
 }
