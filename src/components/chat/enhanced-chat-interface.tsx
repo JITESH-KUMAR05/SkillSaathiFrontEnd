@@ -17,6 +17,9 @@ import { TypingIndicator } from './typing-indicator';
 import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
 
+// Dynamic import for voice service to avoid SSR issues
+let voiceService: any = null;
+
 interface EnhancedChatInterfaceProps {
   agent: AgentType;
   placeholder?: string;
@@ -32,7 +35,8 @@ export function EnhancedChatInterface({
 }: EnhancedChatInterfaceProps) {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [isVoicePlaying, setIsVoicePlaying] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
@@ -40,6 +44,24 @@ export function EnhancedChatInterface({
   const { sendMessage } = useChat();
   
   const agentMessages = messages[agent] || [];
+
+  // Initialize voice service client-side only
+  useEffect(() => {
+    const initVoiceService = async () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const { getVoiceService } = await import('@/services/voice-service');
+          voiceService = await getVoiceService();
+          setIsVoiceSupported(voiceService?.isVoiceSupported() || false);
+        } catch (error) {
+          console.warn('Voice service not available:', error);
+          setIsVoiceSupported(false);
+        }
+      }
+    };
+    
+    initVoiceService();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,10 +92,22 @@ export function EnhancedChatInterface({
     // Voice recording implementation would go here
   };
 
-  const handleVoicePlay = (text: string) => {
-    setIsVoicePlaying(true);
-    // Voice synthesis implementation would go here
-    setTimeout(() => setIsVoicePlaying(false), 2000);
+  const handleVoicePlay = async (text: string) => {
+    try {
+      if (voiceService && isVoiceSupported) {
+        if (voiceService.isSpeaking()) {
+          voiceService.stop();
+          setIsVoiceSpeaking(false);
+        } else {
+          setIsVoiceSpeaking(true);
+          await voiceService.speakAgentResponse(text, agent);
+          setIsVoiceSpeaking(false);
+        }
+      }
+    } catch (error) {
+      console.error('Voice playback error:', error);
+      setIsVoiceSpeaking(false);
+    }
   };
 
   return (
@@ -96,7 +130,13 @@ export function EnhancedChatInterface({
                 <div className="text-gray-700">{welcomeMessage}</div>
                 <button
                   onClick={() => handleVoicePlay(welcomeMessage)}
-                  className="mt-2 flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700"
+                  disabled={!isVoiceSupported}
+                  className={cn(
+                    "mt-2 flex items-center space-x-1 text-sm transition-colors",
+                    isVoiceSupported 
+                      ? "text-blue-600 hover:text-blue-700" 
+                      : "text-gray-400 cursor-not-allowed"
+                  )}
                 >
                   <SpeakerWaveIcon className="w-4 h-4" />
                   <span>Play voice</span>
@@ -185,7 +225,7 @@ export function EnhancedChatInterface({
             </div>
 
             {/* Voice Playback Status */}
-            {isVoicePlaying && (
+            {isVoiceSpeaking && (
               <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-xl">
                 <SpeakerWaveIcon className="w-5 h-5 text-blue-500 animate-pulse" />
                 <span className="text-sm text-blue-700">Playing...</span>

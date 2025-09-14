@@ -3,7 +3,7 @@ import { useChatStore } from '@/store/chat-store';
 import { AgentType } from '@/types/modern';
 
 export function useChat() {
-  const { addMessage, setLoading } = useChatStore();
+  const { addMessage, updateMessage, setLoading } = useChatStore();
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = async (agent: AgentType, content: string) => {
@@ -19,9 +19,8 @@ export function useChat() {
         agent,
       });
 
-      // Create a temporary message for streaming
-      const tempMessageId = `temp-${Date.now()}`;
-      addMessage(agent, {
+      // Create a temporary message for streaming and get its ID
+      const streamingMessageId = addMessage(agent, {
         role: 'assistant',
         content: '',
         timestamp: new Date().toISOString(),
@@ -30,12 +29,16 @@ export function useChat() {
       });
 
       // Send to backend
-      const response = await fetch(`/api/chat/${agent}/stream`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify({ 
+          message: content,
+          agent_type: agent,
+          user_id: 'current_user'
+        }),
       });
 
       if (!response.ok) {
@@ -61,30 +64,26 @@ export function useChat() {
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
-              if (data === '[DONE]') {
-                // Update final message
-                addMessage(agent, {
-                  role: 'assistant',
-                  content: accumulatedContent,
-                  timestamp: new Date().toISOString(),
-                  agent,
-                  isStreaming: false,
-                });
-                return;
+              if (data.trim() === '' || data === '[DONE]') {
+                continue;
               }
               
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  accumulatedContent += parsed.content;
-                  // Update streaming message
-                  addMessage(agent, {
-                    role: 'assistant',
+                if (parsed.chunk) {
+                  accumulatedContent += parsed.chunk;
+                  // Update the existing streaming message
+                  updateMessage(agent, streamingMessageId, {
                     content: accumulatedContent,
-                    timestamp: new Date().toISOString(),
-                    agent,
                     isStreaming: true,
                   });
+                } else if (parsed.done) {
+                  // Mark as complete
+                  updateMessage(agent, streamingMessageId, {
+                    content: accumulatedContent,
+                    isStreaming: false,
+                  });
+                  return;
                 }
               } catch (e) {
                 // Ignore parsing errors for streaming data
@@ -92,6 +91,15 @@ export function useChat() {
             }
           }
         }
+        
+        // If we reach here, mark the final message as complete
+        if (accumulatedContent) {
+          updateMessage(agent, streamingMessageId, {
+            content: accumulatedContent,
+            isStreaming: false,
+          });
+        }
+        
       } finally {
         reader.releaseLock();
       }

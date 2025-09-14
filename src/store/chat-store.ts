@@ -5,7 +5,7 @@ import { AgentType, Message, ChatState, UserPreferences } from '@/types/modern';
 interface ChatStore extends ChatState {
   // Actions
   setCurrentAgent: (agent: AgentType) => void;
-  addMessage: (agent: AgentType, message: Omit<Message, 'id'>) => void;
+  addMessage: (agent: AgentType, message: Omit<Message, 'id'>) => string;
   updateMessage: (agent: AgentType, messageId: string, updates: Partial<Message>) => void;
   clearMessages: (agent: AgentType) => void;
   clearAllMessages: () => void;
@@ -55,6 +55,8 @@ export const useChatStore = create<ChatStore>()(
               [agent]: [...state.messages[agent], message],
             },
           }));
+          
+          return message.id;
         },
         
         updateMessage: (agent, messageId, updates) => {

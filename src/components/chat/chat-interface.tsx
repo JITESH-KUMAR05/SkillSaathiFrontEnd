@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Send, Mic, MicOff, Volume2, Sparkles, Zap, Target } from 'lucide-react';
 import { useChatStore } from '@/store/chat-store';
 import { useStreamingChat } from '@/hooks/use-chat';
 import { cn } from '@/lib/utils';
@@ -12,40 +12,91 @@ import { TypingIndicator } from './typing-indicator';
 export function ChatInterface() {
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const { currentAgent, messages, isLoading, preferences } = useChatStore();
   const { sendStreamingMessage } = useStreamingChat();
-  
+
   const currentMessages = messages[currentAgent] || [];
-  
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages]);
-  
+
+  // Agent-specific styling
+  const getAgentStyles = () => {
+    switch (currentAgent) {
+      case 'mitra':
+        return {
+          gradient: 'from-rose-500/20 via-pink-500/20 to-red-500/20',
+          glow: 'shadow-rose-500/25',
+          accent: 'text-rose-400',
+          bgAccent: 'bg-rose-500/10'
+        };
+      case 'guru':
+        return {
+          gradient: 'from-emerald-500/20 via-teal-500/20 to-cyan-500/20',
+          glow: 'shadow-emerald-500/25',
+          accent: 'text-emerald-400',
+          bgAccent: 'bg-emerald-500/10'
+        };
+      case 'parikshak':
+        return {
+          gradient: 'from-indigo-500/20 via-purple-500/20 to-violet-500/20',
+          glow: 'shadow-indigo-500/25',
+          accent: 'text-indigo-400',
+          bgAccent: 'bg-indigo-500/10'
+        };
+      default:
+        return {
+          gradient: 'from-slate-500/20 via-gray-500/20 to-zinc-500/20',
+          glow: 'shadow-slate-500/25',
+          accent: 'text-slate-400',
+          bgAccent: 'bg-slate-500/10'
+        };
+    }
+  };
+
+  const agentStyles = getAgentStyles();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
-    
+
     const message = inputValue.trim();
     setInputValue('');
-    
+
     // Use streaming for real-time Azure OpenAI responses
     await sendStreamingMessage(message, currentAgent);
   };
-  
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
-  
+
   const toggleRecording = () => {
     // TODO: Implement voice recording
     setIsRecording(!isRecording);
+  };
+
+  // Agent-specific icons
+  const getAgentIcon = () => {
+    switch (currentAgent) {
+      case 'mitra':
+        return <Sparkles className="w-5 h-5" />;
+      case 'guru':
+        return <Zap className="w-5 h-5" />;
+      case 'parikshak':
+        return <Target className="w-5 h-5" />;
+      default:
+        return <Send className="w-5 h-5" />;
+    }
   };
   
   // Auto-resize textarea

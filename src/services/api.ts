@@ -40,13 +40,13 @@ class ApiService {
   
   // Chat endpoints
   async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    const response: AxiosResponse<ChatResponse> = await this.client.post('/api/chat/send', request);
+    const response: AxiosResponse<ChatResponse> = await this.client.post('/api/v1/chat/send', request);
     return response.data;
   }
-  
+
   // Streaming chat (Server-Sent Events) for Azure OpenAI
   async *streamChat(request: StreamChatRequest): AsyncGenerator<string, void, unknown> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/chat/stream`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -93,36 +93,34 @@ class ApiService {
   
   // Voice/TTS endpoints (Murf AI)
   async generateVoice(request: VoiceRequest): Promise<Blob> {
-    const response = await this.client.post('/api/chat/voice/generate', request, {
+    const response = await this.client.post('/api/v1/voice/generate', request, {
       responseType: 'blob', // Important for audio data
     });
     return response.data;
   }
-  
+
   // Agent management
   async getAgents(): Promise<AgentInfo[]> {
-    const response = await this.client.get('/api/chat/agents');
+    const response = await this.client.get('/api/v1/chat/agents');
     return response.data;
   }
-  
+
   // User management
   async getUserProfile(userId: string): Promise<UserProfile> {
-    const response = await this.client.get(`/api/users/${userId}/profile`);
+    const response = await this.client.get(`/api/v1/users/${userId}/profile`);
     return response.data;
   }
-  
+
   async updateUserProfile(userId: string, profile: Partial<UserProfile>): Promise<UserProfile> {
-    const response = await this.client.put(`/api/users/${userId}/profile`, profile);
+    const response = await this.client.put(`/api/v1/users/${userId}/profile`, profile);
     return response.data;
   }
-  
+
   // User stats
   async getUserStats(userId: string): Promise<any> {
-    const response = await this.client.get(`/api/users/${userId}/stats`);
+    const response = await this.client.get(`/api/v1/users/${userId}/stats`);
     return response.data;
-  }
-  
-  // Test Azure OpenAI connection
+  }  // Test Azure OpenAI connection
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
       const health = await this.healthCheck();

@@ -62,15 +62,16 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
   const currentAgentInfo = AGENTS.find(agent => agent.id === currentAgent);
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-gradient-to-b from-white to-gray-50/50">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200/50">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
               className="flex items-center space-x-2"
             >
               <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -79,7 +80,9 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             </motion.div>
           )}
           
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onToggleCollapse}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
           >
@@ -88,7 +91,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             ) : (
               <ChevronLeftIcon className="w-5 h-5 text-gray-500" />
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -127,7 +130,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
               <h3 className="text-sm font-medium text-gray-700 mb-4">Select Your AI Companion</h3>
             )}
             
-            {AGENTS.map((agent) => {
+            {AGENTS.map((agent, index) => {
               const Icon = agent.icon;
               const isActive = currentAgent === agent.id;
               const messageCount = messages[agent.id]?.length || 0;
@@ -136,32 +139,52 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                 <motion.button
                   key={agent.id}
                   onClick={() => setCurrentAgent(agent.id)}
-                  whileHover={{ scale: 1.02 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ scale: 1.03, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
-                    'w-full p-3 rounded-xl border transition-all duration-200',
+                    'w-full p-4 rounded-xl border-2 transition-all duration-300 relative overflow-hidden',
                     isActive
-                      ? 'border-blue-300 bg-blue-50 shadow-sm'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      ? 'border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg shadow-blue-200/50'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-md'
                   )}
                 >
+                  {/* Active indicator */}
+                  {isActive && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+                    />
+                  )}
+                  
                   <div className="flex items-center space-x-3">
-                    <div className={cn('p-2 rounded-lg', agent.bgColor)}>
-                      <Icon className={cn('w-5 h-5', agent.color)} />
-                    </div>
+                    <motion.div 
+                      className={cn('p-3 rounded-xl shadow-sm', agent.bgColor)}
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    >
+                      <Icon className={cn('w-6 h-6', agent.color)} />
+                    </motion.div>
                     
                     {!isCollapsed && (
                       <div className="flex-1 text-left">
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">{agent.name}</span>
-                          <span className="text-sm text-gray-500">{agent.displayName}</span>
+                          <span className="font-semibold text-gray-900">{agent.name}</span>
+                          <span className="text-sm text-gray-500 font-medium">{agent.displayName}</span>
                         </div>
-                        <p className="text-sm text-gray-600 mt-0.5">{agent.description}</p>
+                        <p className="text-sm text-gray-600 mt-1">{agent.description}</p>
                         {messageCount > 0 && (
-                          <div className="flex items-center space-x-1 mt-1">
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                            <span className="text-xs text-green-600">{messageCount} messages</span>
-                          </div>
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center space-x-1 mt-2"
+                          >
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-green-600 font-medium">{messageCount} messages</span>
+                          </motion.div>
                         )}
                       </div>
                     )}
