@@ -93,7 +93,7 @@ class ApiService {
   
   // Voice/TTS endpoints (Murf AI)
   async generateVoice(request: VoiceRequest): Promise<Blob> {
-    const response = await this.client.post('/api/v1/voice/generate', request, {
+    const response = await this.client.post('/api/v1/voice/tts', request, {
       responseType: 'blob', // Important for audio data
     });
     return response.data;

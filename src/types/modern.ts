@@ -58,8 +58,10 @@ export interface StreamChatRequest {
 // Voice Types
 export interface VoiceRequest {
   text: string;
-  agent_type: AgentType;
-  user_id: string;
+  agent: AgentType;  // Changed from agent_type to match backend
+  language?: string;
+  quality?: string;
+  format?: string;
 }
 
 // User Types
