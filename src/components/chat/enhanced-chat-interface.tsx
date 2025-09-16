@@ -133,24 +133,28 @@ export function EnhancedChatInterface({
     // 2. Message has content
     // 3. Auto-voice is enabled and not currently speaking
     // 4. Chat is not loading (to avoid triggering on partial streaming messages)
+    // 5. We haven't already triggered voice for this message ID
     if (lastMessage && 
         lastMessage.role === 'assistant' && 
         lastMessage.content && 
         autoVoiceEnabled && 
         !isVoiceSpeaking && 
-        !isLoading) {
+        !isLoading &&
+        lastMessage.id !== lastVoiceTriggeredMessageId) {
       
       console.log('🎵 Auto-voice triggering for message:', lastMessage.content.substring(0, 50) + '...');
+      setLastVoiceTriggeredMessageId(lastMessage.id);
       handleVoicePlay(lastMessage.content);
     } else if (lastMessage && 
                lastMessage.role === 'assistant' && 
                lastMessage.content && 
-               !isLoading) {
+               !isLoading &&
+               !autoVoiceEnabled) {
       // Manual mode - just show play button after streaming is complete
       setHasAudioReady(true);
       setShowPlayButton(true);
     }
-  }, [agentMessages, autoVoiceEnabled, isLoading]);
+  }, [agentMessages, autoVoiceEnabled, isLoading, lastVoiceTriggeredMessageId]);
 
   const handleSendMessage = async (text: string = message) => {
     if (!text.trim() || isLoading) return;
@@ -227,6 +231,8 @@ export function EnhancedChatInterface({
     setShowPlayButton(false);
     setVoiceTranscript('');
     setMessage('');
+    // Reset voice trigger tracking
+    setLastVoiceTriggeredMessageId(null);
   };
 
   const handleVoicePlay = async (text: string) => {
