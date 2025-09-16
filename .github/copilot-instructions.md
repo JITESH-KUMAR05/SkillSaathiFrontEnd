@@ -1,44 +1,47 @@
+
 # Copilot Instructions for SkillSaathiFrontEnd
 
 ## Project Overview
 - **Framework**: Next.js (App Router, TypeScript)
 - **UI**: Tailwind CSS, Radix UI, Headless UI
-- **State**: React Context, React Query
-- **Purpose**: Multi-agent AI companion platform for personal development, interviews, and conversations.
+- **State**: React Context, Zustand, React Query
+- **Purpose**: Multi-agent AI companion platform for personal development, interviews, and chat.
 
-## Key Architecture & Patterns
-- **App Directory**: All routing and page logic is under `src/app/` (Next.js 13+ App Router). Use nested folders for route segments and layouts.
-- **Agents**: Each agent has its own route under `src/app/agents/[agentId]/page.tsx`.
-- **Interview Features**: Video and chat interview logic is in `src/app/interview/` and `src/components/interview/`.
-- **Reusable UI**: Place new UI elements in `src/components/ui/` and feature-specific UI in `src/components/features/`.
-- **API Services**: All API calls and business logic are in `src/services/` and `src/lib/api.ts`.
-- **State/Context**: Use `src/contexts/` for React Contexts. Use `src/store/` for stateful logic (e.g., chat store).
-- **Types**: Centralize types in `src/types/`.
+## Architecture & Patterns
+- **Routing**: All routes use the App Router (`src/app/`). Protected routes are under `src/app/(app)/`. Each agent has a dynamic route: `src/app/agents/[agentId]/page.tsx`.
+- **Agents**: Agent metadata/config is in `src/config/agents.ts`. Add new agents by updating this file and creating a corresponding page.
+- **Chat & Interview**: Chat logic is in `src/store/chat-store.ts` (Zustand) and `src/hooks/use-chat.ts`. Video interview and advanced chat UIs are in `src/components/interview/` and `src/app/interview/`.
+- **API Layer**: All backend/API calls go through `src/services/` (e.g., `api.ts`, `chat.ts`, `auth.ts`). Never call APIs directly from components.
+- **WebSocket**: Real-time chat uses WebSocket (see `src/lib/useAgentChat.ts`). WebSocket URL is set via env vars.
+- **UI Components**: Place reusable UI in `src/components/ui/`. Feature-specific UI goes in `src/components/features/`.
+- **Types**: Centralize all types in `src/types/` (see `modern.ts` for agent/chat types).
+- **Auth**: Auth logic is in `src/contexts/AuthContext.tsx` and `src/services/auth.ts`.
 
 ## Developer Workflows
 - **Start Dev Server**: `npm run dev` (http://localhost:3000)
-- **Build for Production**: `npm run build` then `npm start`
+- **Production Build**: `npm run build` then `npm start`
 - **Lint/Type Check**: `npm run lint`, `npm run type-check`
 - **Start Script**: `./start_frontend.sh` (Linux/macOS)
-- **Environment**: Set variables in `.env.local` (see README for required keys)
+- **Env Vars**: Set required variables in `.env.local` (see README for details)
 
 ## Project Conventions
-- **Component Naming**: Use PascalCase for components. Place feature-specific components in their respective folders.
-- **API Calls**: Use `src/services/` for all backend communication. Never call APIs directly from components.
+- **Component Naming**: Use PascalCase. Place feature-specific components in their folders.
+- **API Calls**: Use services in `src/services/`. Never call APIs directly from UI.
 - **Styling**: Use Tailwind utility classes. Add global styles to `src/app/globals.css`.
-- **Type Safety**: All code must be TypeScript. Define shared types in `src/types/`.
-- **Protected Routes**: Place protected pages in `src/app/(app)/`.
-- **Agent Config**: Agent metadata/config is in `src/config/agents.ts`.
+- **Type Safety**: All code must be TypeScript. Shared types in `src/types/`.
+- **State**: Use React Context for auth/global state, Zustand for chat, React Query for async data.
+- **Agent/Persona**: Use `src/config/agents.ts` for agent config and persona tips.
 
 ## Integration & Communication
 - **Backend**: Expects API at `NEXT_PUBLIC_API_BASE_URL` (default: http://localhost:8000)
-- **WebSocket**: For real-time features, use the WebSocket URL from env vars.
-- **Cross-Component State**: Use React Context or stores in `src/store/`.
+- **WebSocket**: For real-time chat, use the WebSocket URL from env vars.
+- **Cross-Component State**: Use React Context or Zustand stores in `src/store/`.
 
 ## Examples
 - **Add a new agent**: Update `src/config/agents.ts` and add a new page under `src/app/agents/[agentId]/page.tsx`.
 - **Add a new feature**: Create a component in `src/components/features/` and expose it via a route in `src/app/`.
-- **API call pattern**: Use `src/services/api.ts` or create a new service in `src/services/`.
+- **API call**: Use `src/services/api.ts` or create a new service in `src/services/`.
+- **Chat logic**: Use `useChatStore` from `src/store/chat-store.ts` and hooks in `src/hooks/`.
 
 ## References
 - See `README.MD` for setup, scripts, and troubleshooting.
@@ -47,6 +50,6 @@
 ---
 
 **For AI agents:**
-- Follow the above conventions for all code generation and refactoring.
+- Follow these conventions for all code generation and refactoring.
 - Prefer existing patterns and file locations over inventing new ones.
 - If unsure about a pattern, check for similar examples in the referenced folders.
