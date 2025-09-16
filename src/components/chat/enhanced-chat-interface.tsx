@@ -10,7 +10,8 @@ import {
   EyeIcon,
   EyeSlashIcon,
   PlusIcon,
-  TrashIcon
+  TrashIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 import { useChatStore } from '@/store/chat-store';
 import { AgentType } from '@/types/modern';
@@ -19,6 +20,8 @@ import { TypingIndicator } from './typing-indicator';
 import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
 import { voiceService, VoiceInputEvent } from '@/services/enhanced-voice-service';
+import { useConversationHistory, Conversation } from '@/store/conversation-history';
+import { ConversationHistorySidebar } from './conversation-history-sidebar';
 
 interface EnhancedChatInterfaceProps {
   agent: AgentType;
@@ -43,11 +46,19 @@ export function EnhancedChatInterface({
   const [showPlayButton, setShowPlayButton] = useState(false);
   const [autoVoiceEnabled, setAutoVoiceEnabled] = useState(false);
   const [lastVoiceTriggeredMessageId, setLastVoiceTriggeredMessageId] = useState<string | null>(null);
+  const [isVoiceCallMode, setIsVoiceCallMode] = useState(false);
+  const [showHistorySidebar, setShowHistorySidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const { messages, isLoading, clearMessages } = useChatStore();
   const { sendMessage } = useChat();
+  const {
+    currentConversationId,
+    autoSaveCurrentConversation,
+    setCurrentConversation,
+    createConversation
+  } = useConversationHistory();
   
   const agentMessages = messages[agent] || [];
 
@@ -63,6 +74,34 @@ export function EnhancedChatInterface({
       setVoiceTranscript(event.text);
     }
   }, []);
+
+  // Voice call mode effect - enables continuous conversation
+  useEffect(() => {
+    if (isVoiceCallMode && voiceSupport.speechRecognition) {
+      // Enable auto-voice when entering call mode
+      setAutoVoiceEnabled(true);
+      // Start listening automatically
+      startListening();
+      console.log('🔊 Voice call mode activated - continuous conversation enabled');
+    } else if (!isVoiceCallMode && isListening) {
+      // Stop listening when exiting call mode
+      stopListening();
+      console.log('🔇 Voice call mode deactivated');
+    }
+  }, [isVoiceCallMode, voiceSupport.speechRecognition]);
+
+  // Auto-restart listening in voice call mode after each response
+  useEffect(() => {
+    if (isVoiceCallMode && !isListening && !isVoiceSpeaking && !isLoading) {
+      // Small delay before restarting listening to avoid interrupting speech
+      const timer = setTimeout(() => {
+        if (isVoiceCallMode && !isListening && !isVoiceSpeaking) {
+          startListening();
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVoiceCallMode, isListening, isVoiceSpeaking, isLoading, agentMessages]);
 
   // Initialize voice service
   useEffect(() => {
@@ -118,6 +157,14 @@ export function EnhancedChatInterface({
       voiceService.dispose();
     };
   }, [agent, handleVoiceInput]);
+
+  // Auto-save conversation to history
+  useEffect(() => {
+    const agentMessages = messages[agent] || [];
+    if (agentMessages.length > 0) {
+      autoSaveCurrentConversation(agent, agentMessages);
+    }
+  }, [messages, agent, autoSaveCurrentConversation]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -233,6 +280,25 @@ export function EnhancedChatInterface({
     setMessage('');
     // Reset voice trigger tracking
     setLastVoiceTriggeredMessageId(null);
+    // Create new conversation
+    const newId = createConversation(agent);
+    setCurrentConversation(newId);
+  };
+
+  const handleConversationSelect = (conversation: Conversation) => {
+    // Load conversation messages
+    clearMessages(agent);
+    conversation.messages.forEach(msg => {
+      // Note: This would need integration with the chat store to load messages
+      // For now, we'll just set the current conversation
+    });
+    setCurrentConversation(conversation.id);
+    setShowHistorySidebar(false);
+  };
+
+  const handleNewConversation = () => {
+    startNewChat();
+    setShowHistorySidebar(false);
   };
 
   const handleVoicePlay = async (text: string) => {
@@ -283,24 +349,45 @@ export function EnhancedChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Chat Header with New Chat Button */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-            {agent.charAt(0).toUpperCase()}
+    <div className="flex h-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Conversation History Sidebar */}
+      {showHistorySidebar && (
+        <ConversationHistorySidebar
+          currentAgent={agent}
+          onConversationSelect={handleConversationSelect}
+          onNewConversation={handleNewConversation}
+          className="flex-shrink-0"
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex flex-col flex-1">
+        {/* Chat Header with New Chat Button */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+              {agent.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                {agent.charAt(0).toUpperCase() + agent.slice(1)}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {agentMessages.length > 0 ? `${agentMessages.length} messages` : 'Start a conversation'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-gray-900 dark:text-white">
-              {agent.charAt(0).toUpperCase() + agent.slice(1)}
-            </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {agentMessages.length > 0 ? `${agentMessages.length} messages` : 'Start a conversation'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
+          
+          <div className="flex items-center space-x-2">
+            {/* History Button */}
+            <button
+              onClick={() => setShowHistorySidebar(!showHistorySidebar)}
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              title="View conversation history"
+            >
+              <ClockIcon className="w-4 h-4" />
+              <span>History</span>
+            </button>
           {/* New Chat Button */}
           {agentMessages.length > 0 && (
             <button
@@ -337,6 +424,21 @@ export function EnhancedChatInterface({
           >
             <SpeakerWaveIcon className="w-4 h-4" />
             <span>{autoVoiceEnabled ? 'Auto ON' : 'Auto OFF'}</span>
+          </button>
+
+          {/* Voice Call Mode Toggle */}
+          <button
+            onClick={() => setIsVoiceCallMode(!isVoiceCallMode)}
+            className={cn(
+              "flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+              isVoiceCallMode
+                ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800"
+                : "text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-700 hover:bg-blue-200 dark:hover:bg-blue-600"
+            )}
+            title={`${isVoiceCallMode ? 'End' : 'Start'} voice call mode`}
+          >
+            <MicrophoneIcon className="w-4 h-4" />
+            <span>{isVoiceCallMode ? 'End Call' : 'Voice Call'}</span>
           </button>
         </div>
       </div>
@@ -443,6 +545,27 @@ export function EnhancedChatInterface({
 
       {/* Input Area */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        {/* Voice Call Mode Indicator */}
+        {isVoiceCallMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+          >
+            <div className="flex items-center justify-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-red-700 dark:text-red-300 font-medium">
+                  🔊 Voice Call Active
+                </span>
+              </div>
+              <div className="text-sm text-red-600 dark:text-red-400">
+                Speak naturally - I'm listening!
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="flex items-end space-x-2">
           {/* Voice Controls */}
           <div className="flex flex-col space-y-2">
@@ -483,40 +606,90 @@ export function EnhancedChatInterface({
             </button>
           </div>
 
-          {/* Text Input */}
-          <div className="flex-1">
-            <textarea
-              ref={inputRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={placeholder}
-              disabled={isLoading}
-              className={cn(
-                "w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500",
-                "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600",
-                "text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400",
-                isLoading && "opacity-50 cursor-not-allowed"
-              )}
-              rows={1}
-              style={{ minHeight: '44px', maxHeight: '120px' }}
-            />
-          </div>
+          {/* Text Input - Hidden in voice call mode */}
+          {!isVoiceCallMode && (
+            <div className="flex-1">
+              <textarea
+                ref={inputRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={placeholder}
+                disabled={isLoading}
+                className={cn(
+                  "w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500",
+                  "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600",
+                  "text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400",
+                  isLoading && "opacity-50 cursor-not-allowed"
+                )}
+                rows={1}
+                style={{ minHeight: '44px', maxHeight: '120px' }}
+              />
+            </div>
+          )}
 
-          {/* Send Button */}
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!message.trim() || isLoading}
-            className={cn(
-              "p-3 rounded-lg transition-colors",
-              message.trim() && !isLoading
-                ? "bg-blue-500 text-white hover:bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-            )}
-            title="Send message"
-          >
-            <PaperAirplaneIcon className="w-4 h-4" />
-          </button>
+          {/* Voice Call Mode - Large mic button */}
+          {isVoiceCallMode && (
+            <div className="flex-1 flex justify-center">
+              <button
+                onClick={isListening ? stopListening : startListening}
+                disabled={!voiceSupport.speechRecognition}
+                className={cn(
+                  "w-20 h-20 rounded-full transition-all duration-300 transform",
+                  isListening
+                    ? "bg-red-500 text-white scale-110 animate-pulse shadow-lg shadow-red-500/50"
+                    : "bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 shadow-lg"
+                )}
+                title={isListening ? "Tap to stop listening" : "Tap to start talking"}
+              >
+                {isListening ? (
+                  <StopIcon className="w-10 h-10 mx-auto" />
+                ) : (
+                  <MicrophoneIcon className="w-10 h-10 mx-auto" />
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Send Button - Hidden in voice call mode */}
+          {!isVoiceCallMode && (
+            <button
+              onClick={() => handleSendMessage()}
+              disabled={!message.trim() || isLoading}
+              className={cn(
+                "p-3 rounded-lg transition-colors",
+                message.trim() && !isLoading
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              )}
+              title="Send message"
+            >
+              <PaperAirplaneIcon className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Microphone Button - Hidden in voice call mode */}
+          {!isVoiceCallMode && (
+            <button
+              onClick={isListening ? stopListening : startListening}
+              disabled={!voiceSupport.speechRecognition}
+              className={cn(
+                "p-3 rounded-lg transition-colors",
+                isListening
+                  ? "bg-red-500 text-white animate-pulse"
+                  : voiceSupport.speechRecognition
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+              )}
+              title={isListening ? "Stop listening" : "Start voice input"}
+            >
+              {isListening ? (
+                <StopIcon className="w-4 h-4" />
+              ) : (
+                <MicrophoneIcon className="w-4 h-4" />
+              )}
+            </button>
+          )}
 
           {/* Voice Playback Toggle */}
           <button
@@ -558,6 +731,7 @@ export function EnhancedChatInterface({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
